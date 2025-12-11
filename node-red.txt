@@ -1,0 +1,449 @@
+[
+    {
+        "id": "28900e772b66ed05",
+        "type": "tab",
+        "label": "Flow 4",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "4db6d57839ca39c2",
+        "type": "mqtt in",
+        "z": "28900e772b66ed05",
+        "name": "",
+        "topic": "/aupp/group1/water_percent",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "28c3fa92bd46b8e2",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 360,
+        "y": 200,
+        "wires": [
+            [
+                "56adf40f8b3e58b9",
+                "256fbc1be70d3946"
+            ]
+        ]
+    },
+    {
+        "id": "56adf40f8b3e58b9",
+        "type": "debug",
+        "z": "28900e772b66ed05",
+        "name": "debug 4",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 760,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "256fbc1be70d3946",
+        "type": "function",
+        "z": "28900e772b66ed05",
+        "name": "function 3",
+        "func": "let value = msg.payload;\n\nmsg.measurement = \"water_monitor\";\n\nmsg.payload = {\n    water_percent: value\n};\n\nmsg.tags = {\n    device: \"esp32\"\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 540,
+        "y": 280,
+        "wires": [
+            [
+                "edd463e5b242d5bc"
+            ]
+        ]
+    },
+    {
+        "id": "edd463e5b242d5bc",
+        "type": "influxdb out",
+        "z": "28900e772b66ed05",
+        "influxdb": "518675fe416118c2",
+        "name": "",
+        "measurement": "",
+        "precision": "",
+        "retentionPolicy": "",
+        "database": "database",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "organisation",
+        "bucket": "bucket",
+        "x": 850,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "ea66ffc24df533c0",
+        "type": "mqtt in",
+        "z": "28900e772b66ed05",
+        "name": "",
+        "topic": "/aupp/group1/water_cm",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "28c3fa92bd46b8e2",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 340,
+        "y": 360,
+        "wires": [
+            [
+                "5ffe706a0ce3d40b",
+                "3a4508500a0682d5"
+            ]
+        ]
+    },
+    {
+        "id": "5ffe706a0ce3d40b",
+        "type": "debug",
+        "z": "28900e772b66ed05",
+        "name": "debug 5",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 760,
+        "y": 360,
+        "wires": []
+    },
+    {
+        "id": "3a4508500a0682d5",
+        "type": "function",
+        "z": "28900e772b66ed05",
+        "name": "function 4",
+        "func": "let value = msg.payload;\n\nmsg.measurement = \"water_monitor\";\n\nmsg.payload = {\n    water_cm: value\n};\n\nmsg.tags = {\n    device: \"esp32\"\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 540,
+        "y": 440,
+        "wires": [
+            [
+                "34d38c4cd6d24865"
+            ]
+        ]
+    },
+    {
+        "id": "34d38c4cd6d24865",
+        "type": "influxdb out",
+        "z": "28900e772b66ed05",
+        "influxdb": "518675fe416118c2",
+        "name": "",
+        "measurement": "",
+        "precision": "",
+        "retentionPolicy": "",
+        "database": "database",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "organisation",
+        "bucket": "bucket",
+        "x": 850,
+        "y": 440,
+        "wires": []
+    },
+    {
+        "id": "dd8ec227f4d38843",
+        "type": "mqtt in",
+        "z": "28900e772b66ed05",
+        "name": "",
+        "topic": "/aupp/group1/temperature",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "28c3fa92bd46b8e2",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 350,
+        "y": 540,
+        "wires": [
+            [
+                "48ebba6a34604aef",
+                "9d0f58a31fe86529"
+            ]
+        ]
+    },
+    {
+        "id": "48ebba6a34604aef",
+        "type": "debug",
+        "z": "28900e772b66ed05",
+        "name": "debug 6",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 700,
+        "y": 540,
+        "wires": []
+    },
+    {
+        "id": "9d0f58a31fe86529",
+        "type": "function",
+        "z": "28900e772b66ed05",
+        "name": "function 5",
+        "func": "let value = msg.payload;\n\nmsg.measurement = \"environment\";\n\nmsg.payload = {\n    temperature: value\n};\n\nmsg.tags = {\n    device: \"esp32\"\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 480,
+        "y": 620,
+        "wires": [
+            [
+                "31ce3869635fbd86"
+            ]
+        ]
+    },
+    {
+        "id": "31ce3869635fbd86",
+        "type": "influxdb out",
+        "z": "28900e772b66ed05",
+        "influxdb": "518675fe416118c2",
+        "name": "",
+        "measurement": "",
+        "precision": "",
+        "retentionPolicy": "",
+        "database": "database",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "organisation",
+        "bucket": "bucket",
+        "x": 860,
+        "y": 620,
+        "wires": []
+    },
+    {
+        "id": "8fcd11f95d865d48",
+        "type": "mqtt in",
+        "z": "28900e772b66ed05",
+        "name": "",
+        "topic": "/aupp/group1/humidity",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "28c3fa92bd46b8e2",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 320,
+        "y": 700,
+        "wires": [
+            [
+                "31301b76655c9099",
+                "05164d51716a5152"
+            ]
+        ]
+    },
+    {
+        "id": "31301b76655c9099",
+        "type": "debug",
+        "z": "28900e772b66ed05",
+        "name": "debug 7",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 740,
+        "y": 700,
+        "wires": []
+    },
+    {
+        "id": "05164d51716a5152",
+        "type": "function",
+        "z": "28900e772b66ed05",
+        "name": "function 6",
+        "func": "let value = msg.payload;\n\nmsg.measurement = \"environment\";\n\nmsg.payload = {\n    humidity: value\n};\n\nmsg.tags = {\n    device: \"esp32\"\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 520,
+        "y": 780,
+        "wires": [
+            [
+                "444899383b475a0f"
+            ]
+        ]
+    },
+    {
+        "id": "444899383b475a0f",
+        "type": "influxdb out",
+        "z": "28900e772b66ed05",
+        "influxdb": "518675fe416118c2",
+        "name": "",
+        "measurement": "",
+        "precision": "",
+        "retentionPolicy": "",
+        "database": "database",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "organisation",
+        "bucket": "bucket",
+        "x": 830,
+        "y": 780,
+        "wires": []
+    },
+    {
+        "id": "fb9b6bb091b717df",
+        "type": "mqtt in",
+        "z": "28900e772b66ed05",
+        "name": "",
+        "topic": "/aupp/group1/pressure",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "28c3fa92bd46b8e2",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 320,
+        "y": 880,
+        "wires": [
+            [
+                "17a9bf54d33da754",
+                "845238eb15169f6c"
+            ]
+        ]
+    },
+    {
+        "id": "17a9bf54d33da754",
+        "type": "debug",
+        "z": "28900e772b66ed05",
+        "name": "debug 8",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 740,
+        "y": 880,
+        "wires": []
+    },
+    {
+        "id": "845238eb15169f6c",
+        "type": "function",
+        "z": "28900e772b66ed05",
+        "name": "function 7",
+        "func": "let value = msg.payload;\n\nmsg.measurement = \"environment\";\n\nmsg.payload = {\n    pressure: value\n};\n\nmsg.tags = {\n    device: \"esp32\"\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 520,
+        "y": 960,
+        "wires": [
+            [
+                "4df8dfe29a1647c9"
+            ]
+        ]
+    },
+    {
+        "id": "4df8dfe29a1647c9",
+        "type": "influxdb out",
+        "z": "28900e772b66ed05",
+        "influxdb": "518675fe416118c2",
+        "name": "",
+        "measurement": "",
+        "precision": "",
+        "retentionPolicy": "",
+        "database": "database",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "organisation",
+        "bucket": "bucket",
+        "x": 830,
+        "y": 960,
+        "wires": []
+    },
+    {
+        "id": "28c3fa92bd46b8e2",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "test.mosquitto.org",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "518675fe416118c2",
+        "type": "influxdb",
+        "hostname": "127.0.0.1",
+        "port": 8086,
+        "protocol": "http",
+        "database": "aupp_lab",
+        "name": "",
+        "usetls": false,
+        "tls": "",
+        "influxdbVersion": "1.x",
+        "url": "http://localhost:8086",
+        "timeout": 10,
+        "rejectUnauthorized": true
+    },
+    {
+        "id": "6588d847dac21044",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-contrib-influxdb": "0.7.0"
+        }
+    }
+]
