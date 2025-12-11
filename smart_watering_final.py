@@ -1,7 +1,12 @@
 # ------------------------------------------------------------
 # ESP32 Water Monitoring System
 # LCD + Telegram + MQTT + Automatic Watering + HTTP (MIT App)
-# User can set watering interval & duration via Telegram or MIT App
+# Features:
+#   - Distance-based tank status (LOW/MID/HIGH/UNKNOWN)
+#   - Auto-watering OFF at startup, toggled via MIT App + Telegram
+#   - Startup Telegram help message
+#   - Terminal debug messages for ALL actions
+#   - Safe-mode error handling (no fatal crash on network errors)
 # ------------------------------------------------------------
 
 import network
@@ -25,21 +30,32 @@ WIFI_PASSWORD = "rbtWIFI@2025"
 # Telegram Bot
 # ------------------------------------------------------------
 BOT_TOKEN = "8360114715:AAE1_sKMwOBkY01ynu2fvKFpAvxyvDWeK5o"
-ALLOWED_CHAT_IDS = {1128192910, -4716959086}
+ALLOWED_CHAT_IDS = {1128192910}
 API = "http://api.telegram.org/bot" + BOT_TOKEN
+
+STARTUP_HELP = (
+    "🤖 *Water System Online!*\n"
+    "Available Commands:\n"
+    "/status - Show all sensor values\n"
+    "/tank - Show tank level\n"
+    "/setwater <sec> - Set watering interval\n"
+    "/setduration <sec> - Set pump on duration\n"
+    "/autoon - Enable automatic watering\n"
+    "/autooff - Disable automatic watering\n"
+)
 
 # ------------------------------------------------------------
 # MQTT Configuration
 # ------------------------------------------------------------
-BROKER = "test.mosquitto.org"
+BROKER = "broker.hivemq.com"
 PORT = 1883
 CLIENT_ID = b"esp32_water_monitor"
 
-TOPIC_WATER_PERCENT = b"/aupp/group1/water_percent"
-TOPIC_WATER_CM      = b"/aupp/group1/water_cm"
-TOPIC_TEMP          = b"/aupp/group1/temperature"
-TOPIC_HUM           = b"/aupp/group1/humidity"
-TOPIC_PRESS         = b"/aupp/group1/pressure"
+TOPIC_WATER_STATUS = b"/aupp/group1/water_status"   # LOW/MID/HIGH/UNKNOWN
+TOPIC_WATER_CM     = b"/aupp/group1/water_cm"
+TOPIC_TEMP         = b"/aupp/group1/temperature"
+TOPIC_HUM          = b"/aupp/group1/humidity"
+TOPIC_PRESS        = b"/aupp/group1/pressure"
 
 # ------------------------------------------------------------
 # Hardware Pins
@@ -47,27 +63,19 @@ TOPIC_PRESS         = b"/aupp/group1/pressure"
 DHT_PIN = 4
 TRIG_PIN = 27
 ECHO_PIN = 26
-PUMP_PIN = Pin(14, Pin.OUT)
+PUMP_PIN = Pin(13, Pin.OUT, value=0)
 
 I2C_SDA = 21
 I2C_SCL = 22
 LCD_ADDR = 0x27
 
 # ------------------------------------------------------------
-# Water Tank Calibration
+# Water Tank Distance Ranges (cm)
 # ------------------------------------------------------------
-TANK_FULL_CM  = 3.0   # 100%
-TANK_EMPTY_CM = 8.6   # 0%
-
-def water_percent(dist):
-    if dist is None:
-        return None
-    if dist >= TANK_EMPTY_CM:
-        return 0
-    if dist <= TANK_FULL_CM:
-        return 100
-    percent = (TANK_EMPTY_CM - dist) / (TANK_EMPTY_CM - TANK_FULL_CM) * 100
-    return int(percent)
+# 8.6–7.6  -> LOW
+# 7.5–4.0  -> MID
+# 3.9–2.0  -> HIGH
+# else     -> UNKNOWN
 
 # ------------------------------------------------------------
 # URL Encoding
@@ -98,50 +106,88 @@ lcd.clear()
 lcd.putstr("Starting...")
 utime.sleep(1)
 
-# ------------------------------------------------------------
-# Track last tank values (HTTP /tank)
-# ------------------------------------------------------------
-last_tank_percent = None
+# Last known tank values
+last_tank_status = None  # "LOW", "MID", "HIGH", "UNKNOWN"
 last_tank_cm = None
+
+# Sensor globals (for /status)
+temperature = None
+humidity = None
+pressure = None
+
+# Auto-watering + pump state
+watering_interval = 10   # seconds
+watering_duration = 5      # seconds
+auto_watering = False      # OFF at startup
+WATERING = False           # pump state
+
+# MQTT client holder
+client = None
 
 # ------------------------------------------------------------
 # WiFi
 # ------------------------------------------------------------
 def connect_wifi():
+    print("[WIFI] Connecting...")
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
     wlan.connect(WIFI_SSID, WIFI_PASSWORD)
     while not wlan.isconnected():
         utime.sleep(0.2)
-    print("WiFi OK:", wlan.ifconfig())
+    print("[WIFI] Connected:", wlan.ifconfig())
 
 # ------------------------------------------------------------
-# MQTT
+# MQTT (safe)
 # ------------------------------------------------------------
 def mqtt_connect():
     global client
-    client = MQTTClient(CLIENT_ID, BROKER, PORT)
-    client.connect()
-    print("MQTT Connected")
+    try:
+        client = MQTTClient(CLIENT_ID, BROKER, PORT)
+        client.connect()
+        print("[MQTT] Connected")
+    except Exception as e:
+        print("[MQTT] Connect failed:", e)
+        client = None
 
 def mqtt_publish(topic, value):
-    client.publish(topic, str(value))
+    global client
+    if client is None:
+        # Try to reconnect once
+        mqtt_connect()
+        if client is None:
+            print("[MQTT] Skipping publish, still not connected")
+            return
+    try:
+        print("[MQTT] Publish:", topic, value)
+        client.publish(topic, str(value))
+    except Exception as e:
+        print("[MQTT] Error in publish:", e)
 
 # ------------------------------------------------------------
-# Telegram
+# Telegram (safe)
 # ------------------------------------------------------------
 def send_msg(chat_id, text):
     encoded = url_encode(text)
-    url = API + "/sendMessage?chat_id={}&text={}".format(chat_id, encoded)
+    url = API + "/sendMessage?chat_id={}&text={}&parse_mode=Markdown".format(chat_id, encoded)
     try:
         r = urequests.get(url)
         r.close()
-    except:
-        pass
+        print("[TG] Sent message to", chat_id)
+    except Exception as e:
+        print("[TG] Error sending:", e)
 
 def broadcast(text):
+    print("[TG] Broadcasting message...")
     for cid in ALLOWED_CHAT_IDS:
-        send_msg(cid, text)
+        try:
+            send_msg(cid, text)
+        except Exception as e:
+            print("[TG] Broadcast failed:", e)
+
+def send_startup_help():
+    print("[SYS] Sending startup help to Telegram...")
+    for cid in ALLOWED_CHAT_IDS:
+        send_msg(cid, STARTUP_HELP)
 
 def get_updates(offset=None):
     url = API + "/getUpdates?timeout=1"
@@ -152,7 +198,8 @@ def get_updates(offset=None):
         data = r.json()
         r.close()
         return data.get("result", [])
-    except:
+    except Exception as e:
+        print("[TG] get_updates error:", e)
         return []
 
 # ------------------------------------------------------------
@@ -164,52 +211,70 @@ def water_level_cm():
     TRIG.on()
     utime.sleep_us(10)
     TRIG.off()
+
     try:
         t = time_pulse_us(ECHO, 1, 30000)
-    except:
+    except Exception as e:
+        print("[SENSOR] Ultrasonic timeout:", e)
         return None
+
     if t <= 0:
+        print("[SENSOR] Invalid ultrasonic reading")
         return None
-    return (t * 0.0343) / 2.0
+
+    cm = (t * 0.0343) / 2.0
+    print("[TANK] Distance:", cm, "cm")
+    return cm
+
+# ------------------------------------------------------------
+# Tank Status Based on Distance
+# ------------------------------------------------------------
+def tank_status(dist):
+    if dist is None:
+        return "UNKNOWN"
+
+    if 7.6 <= dist <= 8.6:
+        return "LOW"
+    elif 4.0 <= dist <= 7.5:
+        return "MID"
+    elif 2.0 <= dist <= 3.9:
+        return "HIGH"
+    else:
+        return "UNKNOWN"
 
 # ------------------------------------------------------------
 # Pump Control
 # ------------------------------------------------------------
-WATERING = False
-
 def pump_on():
     global WATERING
     if not WATERING:
-        PUMP_PIN.on()
+        PUMP_PIN.value(1)
         WATERING = True
+        mqtt_publish(TOPIC_PUMP, "ON")     # <-- NEW
+        print("[PUMP] ON")
         broadcast("💧 Pump ON — watering started.")
-        print("Pump ON")
 
 def pump_off():
     global WATERING
     if WATERING:
-        PUMP_PIN.off()
+        PUMP_PIN.value(0)
         WATERING = False
+        mqtt_publish(TOPIC_PUMP, "OFF")    # <-- NEW
+        print("[PUMP] OFF")
         broadcast("✔ Pump OFF — watering stopped.")
-        print("Pump OFF")
 
 # ------------------------------------------------------------
-# User Adjustable Values
-# ------------------------------------------------------------
-watering_interval = 3600   # seconds
-watering_duration = 5      # seconds
-
-# ------------------------------------------------------------
-# HTTP SERVER (MIT App)
+# HTTP SERVER (safe)
 # ------------------------------------------------------------
 def start_http_server():
+    print("[HTTP] Starting server...")
     addr = socket.getaddrinfo("0.0.0.0", 80)[0][-1]
     s = socket.socket()
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind(addr)
     s.listen(1)
     s.settimeout(0.1)
-    print("HTTP server started on port 80")
+    print("[HTTP] Server started!")
     return s
 
 def parse_query(qs):
@@ -223,12 +288,14 @@ def parse_query(qs):
     return params
 
 def handle_http_request(sock):
-    global watering_interval, watering_duration
+    global watering_interval, watering_duration, auto_watering
 
     try:
         cl, addr = sock.accept()
     except OSError:
         return
+
+    print("[HTTP] Request from", addr)
 
     try:
         req = cl.recv(512)
@@ -247,28 +314,22 @@ def handle_http_request(sock):
 
         params = parse_query(qs)
 
-        # -------------------------
-        # MIT APP ACTION ROUTES
-        # -------------------------
-
         if path == "/pump_on":
+            print("[HTTP] Pump ON triggered")
             pump_on()
-            broadcast("📱 MIT App: Pump ON")
-            print("MIT App → Pump ON")
             body = "Pump ON"
 
         elif path == "/pump_off":
+            print("[HTTP] Pump OFF triggered")
             pump_off()
-            broadcast("📱 MIT App: Pump OFF")
-            print("MIT App → Pump OFF")
             body = "Pump OFF"
 
         elif path == "/set_interval":
             sec = params.get("sec", "")
             if sec.isdigit():
                 watering_interval = int(sec)
-                print("MIT App → Interval:", watering_interval)
-                broadcast(f"📱 MIT App: Interval set to {watering_interval} sec")
+                print("[CONFIG] Interval =", watering_interval)
+                broadcast(f"⏱ Interval set to {watering_interval} sec")
                 body = "Interval updated"
             else:
                 body = "Invalid interval"
@@ -277,64 +338,77 @@ def handle_http_request(sock):
             sec = params.get("sec", "")
             if sec.isdigit():
                 watering_duration = int(sec)
-                print("MIT App → Duration:", watering_duration)
-                broadcast(f"📱 MIT App: Duration set to {watering_duration} sec")
+                print("[CONFIG] Duration =", watering_duration)
+                broadcast(f"💧 Duration set to {watering_duration} sec")
                 body = "Duration updated"
             else:
                 body = "Invalid duration"
 
+        elif path == "/auto_on":
+            auto_watering = True
+            print("[AUTO] Automatic watering ENABLED (HTTP)")
+            broadcast("🔄 Automatic watering ENABLED")
+            body = "Auto watering ON"
+
+        elif path == "/auto_off":
+            auto_watering = False
+            print("[AUTO] Automatic watering DISABLED (HTTP)")
+            broadcast("⛔ Automatic watering DISABLED")
+            body = "Auto watering OFF"
+
         elif path == "/tank":
-            body = "Tank: {}% ({} cm)".format(last_tank_percent, last_tank_cm)
+            body = f"Tank: {last_tank_status} ({last_tank_cm} cm)"
 
         else:
             body = "Unknown endpoint"
 
-        cl.send("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n")
-        cl.send(body)
+        try:
+            cl.send("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n")
+            cl.send(body)
+        except Exception as e:
+            print("[HTTP] Send failed:", e)
 
     except Exception as e:
-        print("HTTP Error:", e)
+        print("[HTTP] Error:", e)
+
     finally:
-        cl.close()
+        try:
+            cl.close()
+        except:
+            pass
 
 # ------------------------------------------------------------
 # Telegram Commands
 # ------------------------------------------------------------
 def handle_command(chat_id, text):
-    global watering_interval, watering_duration
+    global watering_interval, watering_duration, auto_watering
 
-    t = text.lower()
+    print("[TG] Command from", chat_id, ":", text)
+
+    t = text.lower().strip()
 
     if t == "/start":
-        send_msg(chat_id,
-            "Commands:\n"
-            "/status\n/tank\n"
-            "/setwater <sec>\n/setduration <sec>"
-        )
+        send_msg(chat_id, STARTUP_HELP)
 
     elif t == "/tank":
-        dist = water_level_cm()
-        percent = water_percent(dist)
-        send_msg(chat_id, f"Tank Level: {percent}%")
+        send_msg(chat_id, f"Tank: {last_tank_status} ({last_tank_cm} cm)")
 
     elif t == "/status":
-        dht_sensor.measure()
-        dist = water_level_cm()
-        percent = water_percent(dist)
         send_msg(chat_id,
-            f"Temp: {dht_sensor.temperature()}°C\n"
-            f"Humidity: {dht_sensor.humidity()}%\n"
-            f"Pressure: {bmp.pressure/100:.1f} hPa\n"
-            f"Tank Level: {percent}%\n"
+            f"Temp: {temperature}°C\n"
+            f"Humidity: {humidity}%\n"
+            f"Pressure: {pressure} hPa\n"
+            f"Tank: {last_tank_status} ({last_tank_cm} cm)\n"
             f"Interval: {watering_interval}s\n"
-            f"Duration: {watering_duration}s"
+            f"Duration: {watering_duration}s\n"
+            f"Auto-Watering: {'ON' if auto_watering else 'OFF'}"
         )
 
     elif t.startswith("/setwater"):
         parts = t.split()
         if len(parts) == 2 and parts[1].isdigit():
             watering_interval = int(parts[1])
-            send_msg(chat_id, f"⏱ Interval set to {watering_interval} sec")
+            send_msg(chat_id, f"Interval set to {watering_interval} sec")
         else:
             send_msg(chat_id, "Usage: /setwater <seconds>")
 
@@ -342,73 +416,131 @@ def handle_command(chat_id, text):
         parts = t.split()
         if len(parts) == 2 and parts[1].isdigit():
             watering_duration = int(parts[1])
-            send_msg(chat_id, f"💧 Duration set to {watering_duration} sec")
+            send_msg(chat_id, f"Duration set to {watering_duration} sec")
         else:
             send_msg(chat_id, "Usage: /setduration <seconds>")
 
+    elif t == "/auto_on":
+        auto_watering = True
+        send_msg(chat_id, "🔄 Automatic watering ENABLED")
+
+    elif t == "/auto_off":
+        auto_watering = False
+        send_msg(chat_id, "⛔ Automatic watering DISABLED")
+
 # ------------------------------------------------------------
-# MAIN LOOP
+# MAIN LOOP (Safe Mode)
 # ------------------------------------------------------------
 def main():
-    global last_tank_percent, last_tank_cm
+    global last_tank_status, last_tank_cm
+    global temperature, humidity, pressure
+    global auto_watering
 
     connect_wifi()
     mqtt_connect()
     http_sock = start_http_server()
 
+    # Force pump OFF once at startup (no repeated OFF in loop)
+    print("[SYS] Forcing pump OFF at startup...")
+    pump_off()
+
+    # send startup message
+    send_startup_help()
+
     last_id = None
     last_water_time = 0
 
+    print("[SYS] System is running... Auto-watering is OFF by default.")
+
     while True:
-        # Read sensors
-        dht_sensor.measure()
-        temperature = dht_sensor.temperature()
-        humidity = dht_sensor.humidity()
-        pressure = bmp.pressure / 100
-        dist = water_level_cm()
-        percent = water_percent(dist)
+        try:
+            # --------- Sensor Reading ---------
+            try:
+                dht_sensor.measure()
+                temperature = dht_sensor.temperature()
+                humidity = dht_sensor.humidity()
+            except Exception as e:
+                print("[SENSOR] DHT error:", e)
+                temperature = None
+                humidity = None
 
-        last_tank_cm = dist
-        last_tank_percent = percent
+            try:
+                pressure = bmp.pressure / 100
+            except Exception as e:
+                print("[SENSOR] BMP280 error:", e)
+                pressure = None
 
-        # LCD Update
-        lcd.clear()
-        lcd.putstr("Tank Level {}%".format(percent))
+            dist = water_level_cm()
+            status = tank_status(dist)
 
-        # MQTT Publish
-        mqtt_publish(TOPIC_WATER_PERCENT, percent)
-        mqtt_publish(TOPIC_WATER_CM, dist)
-        mqtt_publish(TOPIC_TEMP, temperature)
-        mqtt_publish(TOPIC_HUM, humidity)
-        mqtt_publish(TOPIC_PRESS, pressure)
+            last_tank_cm = dist
+            last_tank_status = status
 
-        # Automatic Watering
-        now = utime.time()
+            print(
+                f"[SENSOR] Temp:{temperature}C Hum:{humidity}% "
+                f"Press:{pressure}hPa Tank:{status} ({dist} cm) "
+                f"Auto:{'ON' if auto_watering else 'OFF'}"
+            )
 
-        if percent is not None and percent < 15:
-            pump_off()
-            broadcast("⚠ Tank LOW — watering CANCELLED")
-        else:
-            if now - last_water_time >= watering_interval:
-                pump_on()
-                utime.sleep(watering_duration)
-                pump_off()
-                last_water_time = now
+            # --------- LCD Update ---------
+            try:
+                lcd.clear()
+                lcd.putstr("Tank:{}\nAuto:{}".format(
+                    status, "ON" if auto_watering else "OFF"
+                ))
+            except Exception as e:
+                print("[LCD] Error:", e)
 
-        # Telegram Commands
-        updates = get_updates(last_id + 1 if last_id else None)
-        for u in updates:
-            last_id = u["update_id"]
-            msg = u.get("message", {})
-            chat_id = msg.get("chat", {}).get("id")
-            text = msg.get("text", "")
-            if chat_id in ALLOWED_CHAT_IDS:
-                handle_command(chat_id, text)
+            # --------- MQTT Publish ---------
+            mqtt_publish(TOPIC_WATER_STATUS, status)
+            mqtt_publish(TOPIC_WATER_CM, dist)
+            mqtt_publish(TOPIC_TEMP, temperature)
+            mqtt_publish(TOPIC_HUM, humidity)
+            mqtt_publish(TOPIC_PRESS, pressure)
 
-        # MIT App HTTP Actions
-        handle_http_request(http_sock)
+            # --------- Automatic Watering ---------
+            now = utime.time()
 
-        utime.sleep(0.2)
+            if auto_watering:
+                if status == "LOW":
+                    print("[AUTO] Tank LOW — watering stopped/prevented")
+                    pump_off()
+                elif status in ("MID", "HIGH"):
+                    if now - last_water_time >= watering_interval:
+                        print("[AUTO] Watering cycle started!")
+                        pump_on()
+                        utime.sleep(watering_duration)
+                        pump_off()
+                        last_water_time = now
+                else:
+                    # UNKNOWN level: be safe, do not water automatically
+                    print("[AUTO] Tank UNKNOWN — skipping watering")
+                    pump_off()
+            # NOTE: no "else: pump_off()" here anymore,
+            # so manual /pump_on will NOT be forced off.
+
+            # --------- Telegram Commands ---------
+            try:
+                updates = get_updates(last_id + 1 if last_id else None)
+                for u in updates:
+                    last_id = u["update_id"]
+                    msg = u.get("message", {})
+                    chat_id = msg.get("chat", {}).get("id")
+                    text = msg.get("text", "")
+                    if chat_id in ALLOWED_CHAT_IDS:
+                        handle_command(chat_id, text)
+            except Exception as e:
+                print("[TG] Update handling error:", e)
+
+            # --------- MIT App HTTP Actions ---------
+            handle_http_request(http_sock)
+
+            utime.sleep(0.2)
+
+        except Exception as e:
+            # Catch ANY unexpected error in this loop and continue
+            print("[LOOP ERROR]", e)
+            utime.sleep(0.5)
 
 # ------------------------------------------------------------
 # RUN SYSTEM
@@ -416,6 +548,7 @@ def main():
 try:
     main()
 except Exception as e:
-    print("Fatal Error:", e)
+    print("[FATAL]", e)
     utime.sleep(3)
     reset()
+
