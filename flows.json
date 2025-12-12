@@ -1,0 +1,159 @@
+[
+    {
+        "id": "2d90c478a81130d1",
+        "type": "tab",
+        "label": "Flow 1",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "87ac5e62e4f9230d",
+        "type": "mqtt in",
+        "z": "2d90c478a81130d1",
+        "name": "",
+        "topic": "/aupp/group1m/IOTLab",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "28c3fa92bd46b8e2",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 340,
+        "y": 280,
+        "wires": [
+            [
+                "253e131a35a3d999",
+                "235ccdd3c5c8bb54"
+            ]
+        ]
+    },
+    {
+        "id": "253e131a35a3d999",
+        "type": "debug",
+        "z": "2d90c478a81130d1",
+        "name": "debug 1",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 580,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "235ccdd3c5c8bb54",
+        "type": "function",
+        "z": "2d90c478a81130d1",
+        "name": "function 1",
+        "func": "return msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 500,
+        "y": 420,
+        "wires": [
+            [
+                "c272e4d546306aa4",
+                "f3cbfde23aea1271"
+            ]
+        ]
+    },
+    {
+        "id": "c272e4d546306aa4",
+        "type": "debug",
+        "z": "2d90c478a81130d1",
+        "name": "debug 2",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 670,
+        "y": 540,
+        "wires": []
+    },
+    {
+        "id": "f3cbfde23aea1271",
+        "type": "influxdb out",
+        "z": "2d90c478a81130d1",
+        "influxdb": "518675fe416118c2",
+        "name": "",
+        "measurement": "values",
+        "precision": "",
+        "retentionPolicy": "",
+        "database": "database",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "organisation",
+        "bucket": "bucket",
+        "x": 810,
+        "y": 420,
+        "wires": []
+    },
+    {
+        "id": "28c3fa92bd46b8e2",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "broker.hivemq.com",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "518675fe416118c2",
+        "type": "influxdb",
+        "hostname": "127.0.0.1",
+        "port": 8086,
+        "protocol": "http",
+        "database": "aupp_lab",
+        "name": "",
+        "usetls": false,
+        "tls": "",
+        "influxdbVersion": "1.x",
+        "url": "http://localhost:8086",
+        "timeout": 10,
+        "rejectUnauthorized": true
+    },
+    {
+        "id": "0c693793a6c8c058",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-contrib-influxdb": "0.7.0"
+        }
+    }
+]
