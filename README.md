@@ -40,10 +40,16 @@
 | GPIO22   | SCL | I2C LCD + BMP280 |
 | GPIO27   | TRIG | Ultrasonic TRIG |
 | GPIO26   | ECHO | Ultrasonic ECHO |
-| GPIO14   | Pump Driver | Pump ON/OFF |
+| GPIO13   | Pump Driver | Pump ON/OFF |
 | GND      | All | Common Ground |
 
-(Add images if needed)
+<img width="1280" height="673" alt="image" src="https://github.com/user-attachments/assets/6eba4e5f-55cd-4578-be65-94d5b356ea5b" />
+
+<img width="1280" height="720" alt="image" src="https://github.com/user-attachments/assets/0e51887f-1b66-4f93-bc9a-871ad5417827" />
+
+<img width="1280" height="676" alt="image" src="https://github.com/user-attachments/assets/27c2d6b2-b11c-4466-8c06-f1e3316bbaf6" />
+
+<img width="1280" height="679" alt="image" src="https://github.com/user-attachments/assets/1cb6b9bb-9eeb-43ab-9d85-7c344a8a9f21" />
 
 ## Usage Instructions
 
@@ -72,8 +78,6 @@ Automatic Alerts:
 | /set_duration?sec=NN | Update duration |
 | /tank | Return tank % and cm |
 
-Example:
-
 
 ### 3. MQTT Topics
 
@@ -98,10 +102,9 @@ Failsafe:
 - Tank low = watering disabled
 
 ## Screenshots
-(Add Node-RED, Grafana, MIT App screenshots)
+<img width="934" height="542" alt="image" src="https://github.com/user-attachments/assets/25f3ab18-f457-4cda-a6bf-4ab32daa77e6" />
 
-## Demo Video
-(Add YouTube link)
+<img width="934" height="542" alt="image" src="https://github.com/user-attachments/assets/8a9c4836-ddd4-4eff-806e-3370dae25efd" />
 
 
 ## Notes
