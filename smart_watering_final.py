@@ -116,7 +116,7 @@ humidity = None
 pressure = None
 
 # Auto-watering + pump state
-watering_interval = 10   # seconds
+watering_interval = 3600   # seconds
 watering_duration = 5      # seconds
 auto_watering = False      # OFF at startup
 WATERING = False           # pump state
@@ -239,8 +239,6 @@ def tank_status(dist):
         return "MID"
     elif 2.0 <= dist <= 3.9:
         return "HIGH"
-    else:
-        return "UNKNOWN"
 
 # ------------------------------------------------------------
 # Pump Control
@@ -250,7 +248,6 @@ def pump_on():
     if not WATERING:
         PUMP_PIN.value(1)
         WATERING = True
-        mqtt_publish(TOPIC_PUMP, "ON")     # <-- NEW
         print("[PUMP] ON")
         broadcast("💧 Pump ON — watering started.")
 
@@ -259,7 +256,6 @@ def pump_off():
     if WATERING:
         PUMP_PIN.value(0)
         WATERING = False
-        mqtt_publish(TOPIC_PUMP, "OFF")    # <-- NEW
         print("[PUMP] OFF")
         broadcast("✔ Pump OFF — watering stopped.")
 
@@ -505,6 +501,9 @@ def main():
                 if status == "LOW":
                     print("[AUTO] Tank LOW — watering stopped/prevented")
                     pump_off()
+
+                    # NEW: Send Telegram alert on LOW tank
+                    broadcast("⚠️ *Tank LOW!* Please refill the water tank.")
                 elif status in ("MID", "HIGH"):
                     if now - last_water_time >= watering_interval:
                         print("[AUTO] Watering cycle started!")
